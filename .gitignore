@@ -1,0 +1,12 @@
+# Build artifacts
+/target/
+
+config.json
+cache/
+cache/**/*.json
+users.json
+users/
+
+.idea/
+.env
+.env.*

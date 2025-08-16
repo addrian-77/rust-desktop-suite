@@ -1,0 +1,624 @@
+import { LineEdit } from "std-widgets.slint";
+
+export enum Page { Weather, News, Settings }
+export struct WeatherItem { time: string, temp: string, summary: string }
+export struct ArticleItem { title: string, source: string, published: string, url: string }
+
+component NavButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> is_selected;
+    callback clicked;
+
+    height: 28px;
+    border-radius: 8px;
+    background: is_selected ? #6666ff : #3a4a6d;
+
+    Text {
+        text: root.label;
+        color: white;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-size: 14px;
+    }
+
+    TouchArea { clicked => { root.clicked(); } }
+}
+
+component MenuItem inherits Rectangle {
+    in property <string> label;
+    callback clicked;
+
+    height: 30px;
+    border-radius: 6px;
+    background: #111827;
+
+    Text { text: root.label; color: white;
+           horizontal-alignment: center; vertical-alignment: center; }
+
+    TouchArea { clicked => { root.clicked(); } }
+}
+
+component MenuAction inherits MenuItem {
+    // neutral action (logout)
+    background: #1e293b;
+}
+
+component MenuDanger inherits MenuItem {
+    // kill action (delete)
+    background: #7f1d1d;
+}
+
+
+component Navbar inherits Rectangle {
+    in property <Page> current_page;
+    in property <string> current_user: "guest";
+    in-out property <[string]> users;
+    callback nav_selected(page : Page);
+    callback logout();
+    callback switch_user(user : string);
+    callback delete_user(user : string);
+
+    // local state
+    in-out property <bool> menu_open: false;
+
+    background: #1f2a44;
+    height: 44px;
+        padding-left: 8px; padding-right: 8px;
+
+    VerticalLayout {
+        spacing: 6px;
+
+        // Top Row
+        HorizontalLayout {
+            spacing: 8px;
+
+            NavButton {
+                label: "Settings";
+                is_selected: root.current_page == Page.Settings;
+                clicked => { root.nav_selected(Page.Settings); }
+            }
+            NavButton {
+                label: "Weather";
+                is_selected: root.current_page == Page.Weather;
+                clicked => { root.nav_selected(Page.Weather); }
+            }
+            NavButton {
+                label: "News";
+                is_selected: root.current_page == Page.News;
+                clicked => { root.nav_selected(Page.News); }
+            }
+
+            // spacer
+            Rectangle { background: transparent; horizontal-stretch: 1; }
+
+            // profile chip
+            Rectangle {
+                height: 28px;
+                border-radius: 14px;
+                background: #334155;
+                padding-left: 10px; padding-right: 10px;
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: root.current_user; color: white; vertical-alignment: center; }
+                    Text { text: root.menu_open ? "▲" : "▼"; color: #cbd5e1; vertical-alignment: center; }
+                }
+
+                TouchArea { clicked => { root.menu_open = !root.menu_open; } }
+            }
+        }
+    }
+}
+
+component SplashView inherits Rectangle {
+    in property <string> clock_text: "12:34:56";
+    in property <string> welcome_text: "Welcome!";
+    in-out property <bool> compact: false;
+
+    background: #0066ff;
+    border-radius: 12px;
+    height: compact ? 48px : 100px;
+    animate height { duration: 200ms; easing: ease; }   // smooth shrink
+
+    VerticalLayout {
+        spacing: compact ? 2px : 6px;
+        animate spacing { duration: 200ms; easing: ease; }
+
+        // Greeting
+        Text {
+            text: welcome_text;          // e.g. "Welcome, test"
+            color: #e0e6ff;
+            font-size: compact ? 16px : 18px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            animate font-size { duration: 200ms; easing: ease; }
+        }
+
+        // Clock
+        Text {
+            text: clock_text;
+            color: white;
+            font-size: compact ? 18px : 28px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            animate font-size { duration: 200ms; easing: ease; }
+        }
+    }
+}
+
+component WeatherPage inherits Rectangle {
+    in-out property <[WeatherItem]> items;
+    in-out property <string> city: "Bucharest";
+    callback refresh_requested();
+    in-out property <string> status_text: "";
+
+
+ background: #0f172a;
+ border-radius: 10px;
+ padding-left: 12px; padding-right: 12px;
+ padding-top: 10px;  padding-bottom: 10px;
+
+
+    VerticalLayout {
+        spacing: 8px;
+
+        // Header row with city + refresh
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: "Weather — " + root.city; color: white; }
+
+            Text {
+                text: root.status_text;
+                color: #cbd5e1;
+                visible: root.status_text != "";
+            }
+
+
+            // Simple refresh button (no std-widgets import needed)
+            Rectangle {
+                height: 28px; border-radius: 6px; background: #2563eb;
+                Text { text: "Refresh"; color: white; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { clicked => { root.refresh_requested(); } }
+            }
+        }
+
+        // List
+        VerticalLayout {
+            spacing: 6px;
+            for row in root.items : Rectangle {
+                background: transparent;
+                HorizontalLayout {
+                    spacing: 12px;
+                    Text { text: row.time;    color: white; }
+                    Text { text: row.temp;    color: white; }
+                    Text { text: row.summary; color: #cbd5e1; }
+                }
+            }
+        }
+
+    }
+}
+
+component NewsPage inherits Rectangle {
+    in-out property <[ArticleItem]> items;
+    in-out property <string> topic: "Top Stories";
+    callback refresh_requested();
+    callback open_requested(url: string);
+    in-out property <string> status_text: "";
+
+    background: #0f172a;
+    border-radius: 10px;
+
+    VerticalLayout {
+        spacing: 8px;
+
+        // Header + Refresh
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: "News — " + root.topic; color: white; }
+            Rectangle {
+                height: 28px; border-radius: 6px; background: #2563eb;
+                Text { text: "Refresh"; color: white; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { clicked => { root.refresh_requested(); } }
+            }
+        }
+
+        Text {
+            text: root.status_text;
+            color: #cbd5e1;
+            visible: root.status_text != "";
+        }
+
+        // Scrollable list
+        Rectangle {
+            width: parent.width;
+            vertical-stretch: 1;   // fill remaining page height
+            clip: true;            // <— clipping goes on the Rectangle
+
+            Flickable {
+                width: parent.width;
+                height: parent.height;
+
+                // The child defines the scrollable content size
+                VerticalLayout {
+                    width: parent.width;
+                    spacing: 6px;
+
+                    for row in root.items : Rectangle {
+                        background: #111827;
+                        border-radius: 6px;
+                        padding-left: 6px; padding-right: 6px;
+                        padding-top: 4px;  padding-bottom: 4px;
+
+                        VerticalLayout {
+                            spacing: 2px;
+                            Text { text: row.title; color: white; wrap: word-wrap; }
+                            Text { text: row.source + " • " + row.published; color: #cbd5e1; font-size: 11px; }
+                        }
+
+                        TouchArea { clicked => { root.open_requested(row.url); } }
+                    }
+                }
+            }
+        }
+
+
+    }
+}
+
+component LoginView inherits Rectangle {
+    in-out property <string> user;
+    in-out property <string> pin;
+    callback login_requested(user: string, pin: string);
+    callback register_requested(user: string, pin: string);
+    in-out property <string> error_text: "";
+
+    background: #111827;
+    border-radius: 10px;
+    width: 280px;
+    height: 170px;
+
+    VerticalLayout {
+        spacing: 8px;
+
+        Text { text: "Sign in"; color: white; horizontal-alignment: center; }
+
+        Text {
+                    text: root.error_text;
+                    color: #fca5a5;
+                    horizontal-alignment: center;
+                    visible: root.error_text != "";
+                }
+
+        LineEdit {
+                placeholder-text: "Username";
+                text <=> root.user;
+            }
+        LineEdit {
+                placeholder-text: "PIN";
+                input-type: password;      // masks input
+                text <=> root.pin;
+            }
+
+        // Buttons row
+        HorizontalLayout {
+            spacing: 8px;
+
+            // Register
+            Rectangle {
+                height: 32px; border-radius: 8px; background: #374151;
+                Text { text: "Register"; color: white; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { clicked => { root.register_requested(root.user, root.pin); } }
+            }
+
+            // Login
+            Rectangle {
+                height: 32px; border-radius: 8px; background: #2563eb;
+                Text { text: "Login"; color: white; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { clicked => { root.login_requested(root.user, root.pin); } }
+            }
+        }
+    }
+}
+
+component SettingsPage inherits Rectangle {
+    in-out property <string> city;
+    in-out property <bool> use_celsius;
+    in-out property <string> topic;
+    callback save_requested();
+
+    background: #0f172a;
+    border-radius: 10px;
+
+    // Center the form using top/bottom stretchers
+    VerticalLayout {
+        spacing: 0px;
+
+        // top spacer
+        Rectangle { background: transparent; vertical-stretch: 1; }
+
+        // centered form card
+        form := Rectangle {
+            // cap width & center horizontally
+            width: min(parent.width - 32px, 560px);
+            x: (parent.width - self.width) / 2;
+
+            // height based on content
+            height: form_col.preferred-height + 16px;
+
+            background: transparent;
+            padding-left: 8px; padding-right: 8px;
+            padding-top: 8px;  padding-bottom: 8px;
+            border-radius: 10px;
+
+            form_col := VerticalLayout {
+                spacing: 8px;
+
+                Text { text: "Settings"; color: white; font-size: 15px; }
+
+                // City row
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "City"; color: #cbd5e1; width: 90px; vertical-alignment: center; }
+                    LineEdit { text <=> root.city; height: 30px; font-size: 13px; horizontal-stretch: 1; }
+                }
+
+                // Units row
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "Units"; color: #cbd5e1; width: 90px; vertical-alignment: center; }
+
+                    HorizontalLayout {
+                        spacing: 6px;
+
+                        // C pill
+                        Rectangle {
+                            width: 70px; height: 24px; border-radius: 12px;
+                            background: root.use_celsius ? #2563eb : #374151;
+                            Text { text: "°C"; color: white; font-size: 12px;
+                                   horizontal-alignment: center; vertical-alignment: center; }
+                            TouchArea { clicked => { root.use_celsius = true; } }
+                        }
+
+                        // F pill
+                        Rectangle {
+                            width: 70px; height: 24px; border-radius: 12px;
+                            background: !root.use_celsius ? #2563eb : #374151;
+                            Text { text: "°F"; color: white; font-size: 12px;
+                                   horizontal-alignment: center; vertical-alignment: center; }
+                            TouchArea { clicked => { root.use_celsius = false; } }
+                        }
+
+                        Rectangle { background: transparent; horizontal-stretch: 1; }
+                    }
+                }
+
+                // Topic row
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "News topic"; color: #cbd5e1; width: 90px; vertical-alignment: center; }
+                    LineEdit { text <=> root.topic; height: 30px; font-size: 13px; horizontal-stretch: 1; }
+                }
+
+                // Save (right-aligned)
+                HorizontalLayout {
+                    Rectangle { background: transparent; horizontal-stretch: 1; }
+                    Rectangle {
+                        width: 100px; height: 28px; border-radius: 14px; background: #2563eb;
+                        Text { text: "Save"; color: white; horizontal-alignment: center; vertical-alignment: center; }
+                        TouchArea { clicked => { root.save_requested(); } }
+                    }
+                }
+            }
+        }
+
+        // bottom spacer
+        Rectangle { background: transparent; vertical-stretch: 1; }
+    }
+}
+
+export component MainWindow inherits Window {
+    width: 800px;
+    height: 600px;
+    background: #0b1022;
+
+    in-out property <Page> current_page: Page.Weather;
+    in-out property <string> clock_text: "12:34:56";
+    in-out property <bool> show_splash: true;        // true at boot, false after delay
+    callback nav_selected(page: Page);
+    in-out property <bool> is_logged_in: false;
+    callback login_requested(user: string, pin: string);
+    callback register_requested(user: string, pin: string);
+    in-out property <string> login_error_text: "";
+    in-out property <[WeatherItem]> weather_items;
+    in-out property <string> weather_city: "Bucharest";
+    callback refresh_weather();
+in-out property <[ArticleItem]> news_items;
+in-out property <string> news_topic: "Top Stories";
+callback refresh_news();
+callback open_news(url: string);
+in-out property <string> weather_status: "";
+in-out property <string> news_status: "";
+in-out property <bool> use_celsius: true;
+callback save_settings();
+in-out property <string> current_user: "guest";
+in-out property <[string]> users;
+callback logout();
+callback switch_account(user: string);
+callback delete_account(user: string);
+in-out property <string> login_user: "";
+in-out property <string> login_pin: "";
+in-out property <bool> user_menu_open: false;
+
+// Content area lives "under" the header. It shifts down by header height once compact.
+    content_area := Rectangle {
+        x: 0px;
+        y: splash.compact ? splash.height + 10px : 0px;     // leave room for compact header
+        width: parent.width;
+        height: parent.height - self.y;                          // fill the rest
+        opacity: root.show_splash ? 0 : 1;
+                       // fade in as splash ends
+        animate opacity { duration: 200ms; easing: ease; }
+        visible: root.is_logged_in;
+
+
+        VerticalLayout {
+            spacing: 10px;
+
+            navbar := Navbar {
+
+
+                current_page: root.current_page;
+                nav_selected(page) => { root.nav_selected(page); }
+
+
+                current_user: root.current_user;
+                users: root.users;
+
+                menu_open <=> root.user_menu_open;
+
+                logout() => { root.logout(); }
+                switch_user(u) => { root.switch_account(u); }
+                delete_user(u) => { root.delete_account(u); }
+            }
+
+
+            // Page stack fills the remaining space
+            page_stack := Rectangle {
+                width: parent.width;
+                vertical-stretch: 1;
+
+
+                WeatherPage {
+                    visible: root.current_page == Page.Weather;
+                    width: parent.width; height: parent.height;
+
+                    // bindings so Rust can set data via root properties
+                    items: root.weather_items;
+                    city: root.weather_city;
+                    status_text: root.weather_status;
+                    refresh_requested() => { root.refresh_weather(); }
+                }
+
+                NewsPage {
+                    visible: root.current_page == Page.News;
+                    width: parent.width; height: parent.height;
+
+                    items: root.news_items;
+                    topic: root.news_topic;
+                    refresh_requested() => { root.refresh_news(); }
+                    open_requested(u) => { root.open_news(u); }
+                }
+
+                SettingsPage {
+                    visible: root.current_page == Page.Settings;
+                    width: parent.width; height: parent.height;
+
+                    city <=> root.weather_city;
+                    use_celsius <=> root.use_celsius;
+                    topic <=> root.news_topic;
+                    save_requested() => { root.save_settings(); }
+                }
+
+
+            }
+        }
+
+        // user menu scrim & popup (float above content)
+        menu_scrim := Rectangle {
+            visible: root.user_menu_open;
+            z: 250;
+            background: #00000044;         // subtle dim
+            width: parent.width;
+            height: parent.height;
+            TouchArea { clicked => { root.user_menu_open = false; } }
+        }
+
+        menu_popup := Rectangle {
+            visible: root.user_menu_open;
+            z: 260;
+            width: 260px;
+            // parked near the right edge under the navbar
+            x: parent.width - self.width - 12px;
+            y: 48px;                        // navbar ~40px + margin (maybe)
+            background: #0b1022;
+            border-radius: 10px;
+            padding-left: 10px; padding-right: 10px;
+            padding-top: 8px;  padding-bottom: 8px;
+
+            VerticalLayout {
+                spacing: 6px;
+
+                // Scrollable list of other users
+                Flickable {
+                    width: parent.width;
+                    height: 140px;
+
+                    VerticalLayout {
+                        spacing: 6px;
+
+                        for row in root.users : MenuItem {
+                            visible: row != root.current_user;
+                            label: "Switch to " + row;
+                            clicked => {
+                                root.switch_account(row);
+                                root.user_menu_open = false;
+                            }
+                        }
+                    }
+                }
+
+               // Divider
+               Rectangle { height: 1px; width: parent.width; background: #334155; }
+
+               // Actions
+               MenuAction {
+                   label: "Log out";
+                   clicked => { root.logout(); root.user_menu_open = false; }
+               }
+
+               MenuDanger {
+                   label: "Delete account (" + root.current_user + ")";
+                   clicked => { root.delete_account(root.current_user); root.user_menu_open = false; }
+               }
+            }
+        }
+    }
+
+    // Overlayed splash that animates from centered to docked-top compact header
+    overlay := Rectangle {
+        z: 100;                     // draw above content; no background, so it won't cover visually
+        width: parent.width;
+        height: parent.height;
+
+        splash := SplashView {
+            // full width with margins while animating
+
+
+            clock_text: root.clock_text;
+                // add the greeting
+                welcome_text: "Welcome, " + root.current_user;
+
+            // center while show_splash, then slide to top
+            y: root.show_splash ? (parent.height - self.height) * 0.5 : 0px;
+            animate y { duration: 240ms; easing: ease; }
+
+            // shrink into header when show_splash turns false
+            compact: !root.show_splash;
+        }
+
+        login_box := LoginView {
+            visible: !root.show_splash && !root.is_logged_in;
+            x: (parent.width - self.width) * 0.5;
+            y: (parent.height - self.height) * 0.5;
+            error_text: root.login_error_text;
+
+            user <=> root.login_user;
+                pin  <=> root.login_pin;
+
+            login_requested(u, p) => { root.login_requested(u, p); }
+            register_requested(u, p) => { root.register_requested(u, p); }
+        }
+    }
+}
