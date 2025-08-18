@@ -431,7 +431,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         ui(&aw, move |app| {
                             app.set_weather_status(format!("Loading… ({label})").into());
                         });
-                        fetch_next_hours_at(lat, lon, 4, use_celsius).await
+                        fetch_next_hours_at(lat, lon, 8, use_celsius).await
                     }
                     Err(_) => {
                         ui(&aw, move |app| {

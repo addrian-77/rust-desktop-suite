@@ -1,5 +1,7 @@
 use serde::Deserialize;
-use std::fmt;
+use std::{collections::HashMap, fmt, fs::File, io::BufReader};
+
+use crate::weather;
 
 
 #[derive(Debug)]
@@ -38,11 +40,33 @@ impl From<serde_json::Error> for WeatherFetchError {
 struct Forecast {
     hourly: Hourly,
 }
-#[derive(Deserialize)]
+
+#[derive(Deserialize, Debug)]
+struct CodesInfo {
+    description: String,
+    image: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct DayNight {
+    day: CodesInfo,
+    night: CodesInfo,
+}
+
+#[derive(Deserialize, Clone)]
 struct Hourly {
     time: Vec<String>,
     #[serde(rename = "temperature_2m")]
     temperature: Vec<f64>,
+    #[serde(rename = "apparent_temperature")]
+    realfeel: Vec<f64>,
+    #[serde(rename = "precipitation_probability")]
+    p_probability: Vec<u8>,
+    #[serde(rename = "weather_code")]
+    weather_code: Vec<u8>,
+    #[serde(rename = "is_day")]
+    is_day: Vec<u8>,
+
 }
 pub async fn fetch_next_hours_at(
     lat: f64,
@@ -52,7 +76,7 @@ pub async fn fetch_next_hours_at(
 ) -> Result<Vec<(String, String, String)>, WeatherFetchError> {
     let unit = if use_celsius { "celsius" } else { "fahrenheit" };
     let url = format!(
-        "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m&timezone=auto&forecast_days=1&temperature_unit={unit}"
+        "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,is_day&timezone=auto&forecast_days=1&temperature_unit={unit}"
     );
 
     let resp = reqwest::Client::new().get(&url).send().await?.error_for_status()?;
@@ -75,6 +99,18 @@ pub async fn fetch_next_hours_at(
         };
         let temp = data.hourly.temperature.get(i).copied().unwrap_or_default();
         let sym = if use_celsius { "°C" } else { "°F" };
+        let realfeel = data.hourly.realfeel.get(i).copied().unwrap_or_default();
+        let p_probability = data.hourly.p_probability.get(i).copied().unwrap_or_default();
+        let weather_code = data.hourly.weather_code.get(i).copied().unwrap_or_default();
+
+        let is_daytime = if data.hourly.is_day.get(i).copied().unwrap_or_default() == 1 { true } else { false };
+        let codes_file = File::open("weather_codes.json").unwrap();
+        let reader = BufReader::new(codes_file);
+        let weather_codes_as_map: HashMap<String, DayNight> = serde_json::from_reader(reader)?;
+        if let Some(entry) = weather_codes_as_map.get(&weather_code.to_string()) {
+            let info = if is_daytime { &entry.day } else { &entry.night };
+            println!("Code {} {} {} {} {}", weather_code, info.description, info.image, realfeel, p_probability);
+        }
         out.push((display_time, format!("{temp:.0}{sym}"), "Hourly".to_string()));
     }
     Ok(out)
