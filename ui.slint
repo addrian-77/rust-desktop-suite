@@ -263,24 +263,34 @@ component WeatherPage inherits Rectangle {
         }
 
         // List
-        VerticalLayout {
-            spacing: 40px;
-            for row in root.items : Rectangle {
-                background: transparent;
+        // List (fills remaining height; scrollable)
+        Rectangle {
+            vertical-stretch: 1;
+            clip: true;
 
-                HorizontalLayout {
+            Flickable {
+                width: parent.width;
+                height: parent.height;
+
+                VerticalLayout {
+                    width: parent.width;
                     spacing: 12px;
+                    for row in root.items : Rectangle {
+                        background: transparent;
 
-                    // weather icon
-                    Image { source: row.icon; width: 28px; height: 28px; }
+                        HorizontalLayout {
+                            spacing: 12px;
 
-                    Text { text: row.time;    color: white; width: 60px; }
-                    Text { text: row.temp;    color: white; width: 60px; }
-                    // We’ll pack description + feels-like + precip into summary
-                    Text { text: row.summary; color: #cbd5e1; horizontal-stretch: 1; wrap: word-wrap; }
+                            Image { source: row.icon; width: 28px; height: 28px; }
+                            Text { text: row.time;    color: white; width: 60px; }
+                            Text { text: row.temp;    color: white; width: 60px; }
+                            Text { text: row.summary; color: #cbd5e1; horizontal-stretch: 1; wrap: word-wrap; }
+                        }
+                    }
                 }
             }
         }
+
     }
 }
 
