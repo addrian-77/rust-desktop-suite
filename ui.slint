@@ -1,7 +1,7 @@
 import { LineEdit, ComboBox } from "std-widgets.slint";
 
 export enum Page { Weather, News, Settings }
-export struct WeatherItem { time: string, temp: string, summary: string}
+export struct WeatherItem { time: string, temp: string, summary: string, icon: image }
 export struct ArticleItem { title: string, source: string, published: string, url: string}
 
 component NavButton inherits Rectangle {
@@ -283,24 +283,19 @@ component WeatherPage inherits Rectangle {
         // List
         VerticalLayout {
             spacing: 6px;
-            for row in root.items: Rectangle {
+            for row in root.items : Rectangle {
                 background: transparent;
+
                 HorizontalLayout {
                     spacing: 12px;
-                    Text {
-                        text: row.time;
-                        color: white;
-                    }
 
-                    Text {
-                        text: row.temp;
-                        color: white;
-                    }
+                    // weather icon
+                    Image { source: row.icon; width: 28px; height: 28px; }
 
-                    Text {
-                        text: row.summary;
-                        color: #cbd5e1;
-                    }
+                    Text { text: row.time;    color: white; width: 60px; }
+                    Text { text: row.temp;    color: white; width: 60px; }
+                    // We’ll pack description + feels-like + precip into summary
+                    Text { text: row.summary; color: #cbd5e1; horizontal-stretch: 1; wrap: word-wrap; }
                 }
             }
         }

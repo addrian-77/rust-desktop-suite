@@ -6,7 +6,7 @@ mod cache;
 mod geocode;
 
 
-use weather::fetch_next_hours_at;
+use weather::{fetch_next_hours_at, HourForecast};
 use geocode::fetch_coords;
 
 
@@ -46,7 +46,6 @@ fn ui<F: FnOnce(MainWindow) + Send + 'static>(app_weak: &slint::Weak<MainWindow>
 }
 
 // Centralized setters
-
 fn set_page(state: &State, app_weak: &slint::Weak<MainWindow>, page: Page) {
     if let Ok(mut s) = state.lock() { s.current_page = page; }
     ui(app_weak, move |app| app.set_current_page(page));
@@ -95,7 +94,33 @@ fn push_users_to_ui(app_weak: &slint::Weak<MainWindow>, auth: &LocalAuth) {
         app.set_users(slint::ModelRc::new(model));
     });
 }
+async fn cache_icon_to_path(url: &str) -> Option<std::path::PathBuf> {
+    use std::{fs, path::PathBuf};
 
+    if url.is_empty() {
+        return None;
+    }
+
+    let cache_dir = PathBuf::from("icons_cache");
+    let _ = fs::create_dir_all(&cache_dir);
+
+    let filename = url.split('/').last().unwrap_or("icon.png");
+    let path = cache_dir.join(filename);
+
+    if !path.exists() {
+        if let Ok(resp) = reqwest::get(url).await {
+            if let Ok(bytes) = resp.bytes().await {
+                let _ = fs::write(&path, &bytes);
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        }
+    }
+
+    Some(path)
+}
 fn main() -> Result<(), slint::PlatformError> {
     let app = MainWindow::new()?;
 
@@ -402,13 +427,19 @@ fn main() -> Result<(), slint::PlatformError> {
                 ("Bucharest".to_string(), true)
             };
 
-            // Try per-user cache first:
+            // Try per-user cache first (text-only; no icons)
             if let Some(c) = load_weather_for(&user) {
                 let want = if use_celsius { "C" } else { "F" };
                 if is_fresh(c.ts, 15 * 60) && c.units == want && c.city == city.to_lowercase() {
                     if let Some(app) = app_weak.upgrade() {
-                        let items: Vec<WeatherItem> = c.rows.into_iter()
-                            .map(|r| WeatherItem { time: r.time.into(), temp: r.temp.into(), summary: r.summary.into() })
+                        let items: Vec<WeatherItem> = c.rows
+                            .into_iter()
+                            .map(|r| WeatherItem {
+                                time: r.time.into(),
+                                temp: r.temp.into(),
+                                summary: r.summary.into(),
+                                icon: slint::Image::default(),   // cache has no icon info
+                            })
                             .collect();
                         let model = slint::VecModel::from(items);
                         app.set_weather_items(slint::ModelRc::new(model));
@@ -421,55 +452,112 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             }
 
-            // Network:
+            // Network fetch
             let aw = app_weak.clone();
-            let user_for_save = user.clone(); // pass to async block
+            let user_for_save = user.clone();
+            let city_for_err = city.clone();
+
             h.spawn(async move {
-                let resolved = fetch_coords(&city).await;
-                let fetched = match resolved {
+                // 1) Resolve city -> coords
+                let fetched = match fetch_coords(&city).await {
                     Ok((lat, lon, label)) => {
                         ui(&aw, move |app| {
                             app.set_weather_status(format!("Loading… ({label})").into());
                         });
+                        // NOTE: this call is expected to return Vec<HourForecast>
+                        // with fields: time, temp, description, real_feel, precip, icon_url
                         fetch_next_hours_at(lat, lon, 8, use_celsius).await
                     }
                     Err(_) => {
                         ui(&aw, move |app| {
-                            app.set_weather_status(format!("City not found: {}", city).into());
+                            app.set_weather_status(format!("City not found: {}", city_for_err).into());
                         });
                         return;
                     }
                 };
 
                 match fetched {
+                    // Build cache (text-only) and UI (with icons loaded on the UI thread)
                     Ok(rows) => {
-                        // Save per-user cache:
-                        let _ = save_weather_for(&user_for_save, &rows, if use_celsius { "C" } else { "F" }, &city);
+                        // Save simplified rows to cache (compatible with old format)
+                        let rows_for_cache: Vec<(String, String, String)> = rows.iter()
+                            .map(|r| {
+                                let summary = format!("{} • {} • {}", r.description, r.real_feel, r.precip);
+                                (r.time.clone(), r.temp.clone(), summary)
+                            })
+                            .collect();
+
+                        let _ = save_weather_for(
+                            &user_for_save,
+                            &rows_for_cache,
+                            if use_celsius { "C" } else { "F" },
+                            &city,
+                        );
+
+                        // Prepare data for UI: download icons -> keep only file paths (Send)
+                        struct GuiRow {
+                            time: String,
+                            temp: String,
+                            summary: String,
+                            icon_path: Option<std::path::PathBuf>,
+                        }
+
+                        let mut gui_rows: Vec<GuiRow> = Vec::with_capacity(rows.len());
+                        for r in rows {
+                            let icon_path = cache_icon_to_path(&r.icon_url).await;  // async download/cache
+                            let summary = format!("{} • {} • {}", r.description, r.real_feel, r.precip);
+                            gui_rows.push(GuiRow {
+                                time: r.time,
+                                temp: r.temp,
+                                summary,
+                                icon_path,
+                            });
+                        }
+
+                        // Hop to UI thread: construct slint::Image here (not across threads)
                         ui(&aw, move |app| {
-                            let items: Vec<WeatherItem> = rows.into_iter()
-                                .map(|(time, temp, summary)| WeatherItem { time: time.into(), temp: temp.into(), summary: summary.into() })
+                            let items: Vec<WeatherItem> = gui_rows
+                                .into_iter()
+                                .map(|g| {
+                                    let img = g.icon_path
+                                        .as_ref()
+                                        .and_then(|p| slint::Image::load_from_path(p.as_path()).ok())
+                                        .unwrap_or_default();
+
+                                    WeatherItem {
+                                        time: g.time.into(),
+                                        temp: g.temp.into(),
+                                        summary: g.summary.into(),
+                                        icon: img,
+                                    }
+                                })
                                 .collect();
+
                             let model = slint::VecModel::from(items);
                             app.set_weather_items(slint::ModelRc::new(model));
-                            app.set_weather_status(format!("Updated ({})",
-                                                           if use_celsius { "°C" } else { "°F" }).into());
+                            app.set_weather_status(
+                                format!("Updated ({})", if use_celsius { "°C" } else { "°F" }).into()
+                            );
                         });
                     }
+
+
+                    // Error handling
                     Err(err) => {
                         ui(&aw, move |app| {
                             let s = app.get_weather_status().to_string();
                             if s.starts_with("Cached") {
                                 app.set_weather_status(format!("Offline • {}", s).into());
                             } else {
-                                app.set_weather_status(format!("Failed to load: {:?}", err).into());
+                                app.set_weather_status(format!("Failed to load: {}", err).into());
                             }
                         });
                     }
                 }
             });
         });
-
     }
+
 
     // NEWS
     {
