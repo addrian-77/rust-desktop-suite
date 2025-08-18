@@ -6,7 +6,7 @@ mod cache;
 mod geocode;
 
 
-use weather::{fetch_next_hours_at, HourForecast};
+use weather::fetch_next_hours_at;
 use geocode::fetch_coords;
 
 
