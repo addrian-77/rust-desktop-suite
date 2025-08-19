@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
 use std::{fs, io, path::PathBuf};
 use chrono::Utc;
 
@@ -16,7 +17,7 @@ pub struct WeatherCache {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct NewsRow { pub title: String, pub source: String, pub published: String, pub url: String }
+pub struct NewsRow { pub title: String, pub source: String, pub published: String, pub url: String}
 
 #[derive(Serialize, Deserialize)]
 pub struct NewsCache { pub ts: i64, pub rows: Vec<NewsRow> }
@@ -36,14 +37,9 @@ pub fn age_minutes(ts: i64) -> i64 {
 // Post Login cache
 
 fn user_cache_dir(user: &str) -> io::Result<PathBuf> {
-    let home = std::env::var("HOME")
-        .map_err(|_| io::Error::new(io::ErrorKind::Other, "HOME not set"))?;
-    let dir = PathBuf::from(home)
-        .join("tock-workshop")
-        .join("slint_rust")
+    let dir = PathBuf::from("cache")
         .join("users")
-        .join(user)
-        .join("cache");
+        .join(user);
     fs::create_dir_all(&dir)?;
     Ok(dir)
 }
@@ -75,10 +71,10 @@ pub fn load_weather_for(user: &str) -> Option<WeatherCache> {
     serde_json::from_str(&s).ok()
 }
 
-pub fn save_news_for(user: &str, rows: &[(String, String, String, String)]) -> io::Result<()> {
+pub fn save_news_for(user: &str, rows: &[(String, String, String, String, SharedPixelBuffer<Rgba8Pixel>)]) -> io::Result<()> {
     let n = NewsCache {
         ts: Utc::now().timestamp(),
-        rows: rows.iter().map(|(title, source, published, url)| NewsRow {
+        rows: rows.iter().map(|(title, source, published, url, _thumbnail)| NewsRow {
             title: title.clone(), source: source.clone(), published: published.clone(), url: url.clone()
         }).collect(),
     };

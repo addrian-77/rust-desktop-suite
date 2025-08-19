@@ -1,8 +1,21 @@
-import { LineEdit, ComboBox } from "std-widgets.slint";
+import { LineEdit, ComboBox, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
 export enum Page { Weather, News, Settings }
-export struct WeatherItem { time: string, temp: string, summary: string, icon: image }
-export struct ArticleItem { title: string, source: string, published: string, url: string}
+export struct WeatherItem { time: string, temp: string, summary: string, icon: image}
+export struct ArticleItem { title: string, source: string, published: string, url: string, thumbnail: image}
+
+global Palette {
+    in-out property <length> default_text_size: 17px;
+    in-out property <length> weather_text_size: 20px;
+    in-out property <length> content_text_size: 15px;
+    in-out property <length> content_header_text_size: 20px;
+    in-out property <length> clock_text_size: 30px;
+    in-out property <length> header_text_size: 25px;
+    in-out property <length> button_text_size: 18px;
+    in-out property <length> button_size: 40px;
+    in-out property <length> navbar_height: 50px;
+    in-out property <length> menu_height: 40px;
+}
 
 component NavButton inherits Rectangle {
     in property <string> label;
@@ -12,7 +25,7 @@ component NavButton inherits Rectangle {
     // default sizing (Navbar should override height)
     height: 28px;
     min-width: 72px;
-    border-radius: self.height / 2;
+    // border-radius: self.height / 2;
 
     // theme colors
     in property <color> col_base: transparent;
@@ -20,27 +33,32 @@ component NavButton inherits Rectangle {
     in property <color> col_selected: #6666ff;
 
     // combined background logic + a tiny animation
-    background: is_selected ? col_selected
-              : (ta.has-hover ? col_hover : col_base);
-    animate background { duration: 120ms; easing: ease; }
+    background: is_selected ? col_selected : (ta.has-hover ? col_hover : col_base);
+    animate background {
+        duration: 120ms;
+        easing: ease;
+    }
 
     Text {
         text: root.label;
         color: white;
         horizontal-alignment: center;
         vertical-alignment: center;
-        font-size: 14px;
+        font-size: Palette.button_text_size;
     }
 
-    ta := TouchArea { clicked => { root.clicked(); } }
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
 }
-
 
 component MenuItem inherits Rectangle {
     in property <string> label;
     callback clicked;
 
-    height: 30px;
+    height: Palette.menu_height;
     border-radius: 6px;
     background: #111827;
 
@@ -48,6 +66,7 @@ component MenuItem inherits Rectangle {
         text: root.label;
         color: white;
         horizontal-alignment: center;
+        font-size: Palette.button_text_size;
         vertical-alignment: center;
     }
 
@@ -81,7 +100,7 @@ component Navbar inherits Rectangle {
     in-out property <bool> menu_open: false;
 
     background: #1f2a44;
-    height: 44px;
+    height: Palette.navbar_height;
     padding-left: 8px;
     padding-right: 8px;
 
@@ -139,6 +158,7 @@ component Navbar inherits Rectangle {
                     Text {
                         text: root.current_user;
                         color: white;
+                        font-size: Palette.default_text_size;
                         vertical-alignment: center;
                     }
 
@@ -169,7 +189,7 @@ component SplashView inherits Rectangle {
 
     background: #0066ff;
     border-radius: 12px;
-    height: compact ? 48px : 100px;
+    height: compact ? 100px : 150px;
     animate height {
         duration: 200ms;
         easing: ease;
@@ -186,7 +206,8 @@ component SplashView inherits Rectangle {
         Text {
             text: welcome_text;          // e.g. "Welcome, test"
             color: #e0e6ff;
-            font-size: compact ? 16px : 18px;
+            font-size: Palette.header_text_size;
+
             font-weight: 700;
             horizontal-alignment: center;
             vertical-alignment: center;
@@ -200,7 +221,8 @@ component SplashView inherits Rectangle {
         Text {
             text: clock_text;
             color: white;
-            font-size: compact ? 18px : 28px;
+            font-size: Palette.clock_text_size;
+
             horizontal-alignment: center;
             vertical-alignment: center;
             animate font-size {
@@ -225,26 +247,33 @@ component WeatherPage inherits Rectangle {
     padding-bottom: 10px;
 
     VerticalLayout {
+        width: 85%;
         spacing: 8px;
+        x: 80px;
 
         // Header row with city + refresh
         HorizontalLayout {
             spacing: 8px;
             Text {
+                width: 370px;
                 text: "Weather — " + root.city;
                 color: white;
+                font-size: Palette.header_text_size;
             }
 
             Text {
+                width: 340px;
                 text: root.status_text;
                 color: #cbd5e1;
                 visible: root.status_text != "";
+                font-size: Palette.content_text_size;
             }
 
 
             // Simple refresh button (no std-widgets import needed)
             Rectangle {
-                height: 28px;
+                width: 80px;
+                height: 40px;
                 border-radius: 6px;
                 background: #2563eb;
                 Text {
@@ -252,6 +281,7 @@ component WeatherPage inherits Rectangle {
                     color: white;
                     horizontal-alignment: center;
                     vertical-alignment: center;
+                    font-size: Palette.button_text_size;
                 }
 
                 TouchArea {
@@ -275,22 +305,54 @@ component WeatherPage inherits Rectangle {
                 VerticalLayout {
                     width: parent.width;
                     spacing: 12px;
-                    for row in root.items : Rectangle {
-                        background: transparent;
+                    for row in root.items: Rectangle {
+                        background: #212d5a;
+                        border-radius: 5px;
+                        width: 100%;
+                        height: 100px;
 
                         HorizontalLayout {
-                            spacing: 12px;
+                            spacing: 50px;
+                            x: 20px;
 
-                            Image { source: row.icon; width: 28px; height: 28px; }
-                            Text { text: row.time;    color: white; width: 60px; }
-                            Text { text: row.temp;    color: white; width: 60px; }
-                            Text { text: row.summary; color: #cbd5e1; horizontal-stretch: 1; wrap: word-wrap; }
+                            Text {
+                                y: 52px;
+                                text: row.time;
+                                color: white;
+                                font-size: Palette.weather_text_size;
+
+                                width: 60px;
+                            }
+
+                            Image {
+                                source: row.icon;
+                                width: 120px; //12 28
+                                height: 120px;
+                            }
+
+                            Text {
+                                y: 52px;
+                                text: row.temp;
+                                color: white;
+                                font-size: Palette.weather_text_size;
+
+                                width: 60px;
+                            }
+
+                            Text {
+                                y: 52px;
+                                text: row.summary;
+                                color: #cbd5e1;
+                                horizontal-stretch: 1;
+                                font-size: Palette.weather_text_size;
+
+                                wrap: word-wrap;
+                            }
                         }
                     }
                 }
             }
         }
-
     }
 }
 
@@ -300,23 +362,35 @@ component NewsPage inherits Rectangle {
     callback refresh_requested();
     callback open_requested(url: string);
     in-out property <string> status_text: "";
-
     background: #0f172a;
     border-radius: 10px;
-
     VerticalLayout {
         spacing: 8px;
-
-        // Header + Refresh
+        width: 85%;
+        x: 80px;
+        // Header row with city + refresh
         HorizontalLayout {
             spacing: 8px;
             Text {
+                width: 370px;
                 text: "News — " + root.topic;
                 color: white;
+                font-size: Palette.header_text_size;
             }
 
+            Text {
+                width: 340px;
+                text: root.status_text;
+                color: #cbd5e1;
+                visible: root.status_text != "";
+                font-size: Palette.content_text_size;
+            }
+
+
+            // Simple refresh button (no std-widgets import needed)
             Rectangle {
-                height: 28px;
+                width: 80px;
+                height: 40px;
                 border-radius: 6px;
                 background: #2563eb;
                 Text {
@@ -324,6 +398,7 @@ component NewsPage inherits Rectangle {
                     color: white;
                     horizontal-alignment: center;
                     vertical-alignment: center;
+                    font-size: Palette.button_text_size;
                 }
 
                 TouchArea {
@@ -336,45 +411,70 @@ component NewsPage inherits Rectangle {
 
         Text {
             text: root.status_text;
+            font-size: Palette.content_text_size;
             color: #cbd5e1;
             visible: root.status_text != "";
-        }
-
-        // Scrollable list
+        } 
+        // Scrollable list 
         Rectangle {
             width: parent.width;
-            vertical-stretch: 1;   // fill remaining page height
-            clip: true;            // <— clipping goes on the Rectangle
-
+            vertical-stretch: 1; 
+            // fill remaining page height 
+            clip: true; // <— clipping goes on the Rectangle 
             Flickable {
                 width: parent.width;
-                height: parent.height;
-
-                // The child defines the scrollable content size
+                height: parent.height; // The child defines the scrollable content size 
                 VerticalLayout {
                     width: parent.width;
                     spacing: 6px;
-
                     for row in root.items: Rectangle {
                         background: #111827;
+                        height: 100px;
+                        width: 100%;
                         border-radius: 6px;
                         padding-left: 6px;
                         padding-right: 6px;
                         padding-top: 4px;
                         padding-bottom: 4px;
-
                         VerticalLayout {
-                            spacing: 2px;
-                            Text {
-                                text: row.title;
-                                color: white;
-                                wrap: word-wrap;
-                            }
+                            spacing: 100px;
+                            Rectangle {
+                                background: #212d5a;
+                                width: 870px;
+                                height: 98px;
+                                border-radius: 5px;
+                                HorizontalBox {
+                                    Rectangle {
+                                        width: 55%;
+                                        height: 100%;
+                                        Text {
+                                            text: row.title;
+                                            color: white;
+                                            width: 450px;
+                                            wrap: word-wrap;
+                                            font-size: Palette.content_header_text_size;
+                                        }
 
-                            Text {
-                                text: row.source + " • " + row.published;
-                                color: #cbd5e1;
-                                font-size: 11px;
+                                        Text {
+                                            x: 15px;
+                                            y: 70px;
+                                            text: row.source + " • " + row.published; 
+                                            color: #cbd5e1;
+                                            font-size: Palette.content_text_size;
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        width: 33%;
+                                        height: 85px;
+                                        Image {
+                                            x: 160px;
+                                            width: 165px;
+                                            height: 93px;
+                                            source: row.thumbnail;
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -409,11 +509,13 @@ component LoginView inherits Rectangle {
             text: "Sign in";
             color: white;
             horizontal-alignment: center;
+            font-size: Palette.header_text_size;
         }
 
         Text {
             text: root.error_text;
             color: #fca5a5;
+            font-size: Palette.default_text_size;
             horizontal-alignment: center;
             visible: root.error_text != "";
         }
@@ -443,6 +545,7 @@ component LoginView inherits Rectangle {
                     color: white;
                     horizontal-alignment: center;
                     vertical-alignment: center;
+                    font-size: Palette.button_text_size;
                 }
 
                 TouchArea {
@@ -460,6 +563,7 @@ component LoginView inherits Rectangle {
                 Text {
                     text: "Login";
                     color: white;
+                    font-size: Palette.button_text_size;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
@@ -515,7 +619,7 @@ component SettingsPage inherits Rectangle {
                 Text {
                     text: "Settings";
                     color: white;
-                    font-size: 15px;
+                    font-size: Palette.default_text_size + 10px;
                 }
 
                 // City row
@@ -525,6 +629,7 @@ component SettingsPage inherits Rectangle {
                         text: "City";
                         color: #cbd5e1;
                         width: 90px;
+                        font-size: Palette.default_text_size;
                         vertical-alignment: center;
                     }
 
@@ -543,6 +648,7 @@ component SettingsPage inherits Rectangle {
                         text: "Units";
                         color: #cbd5e1;
                         width: 90px;
+                        font-size: Palette.default_text_size;
                         vertical-alignment: center;
                     }
 
@@ -558,7 +664,7 @@ component SettingsPage inherits Rectangle {
                             Text {
                                 text: "°C";
                                 color: white;
-                                font-size: 12px;
+                                font-size: Palette.default_text_size;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }
@@ -579,7 +685,7 @@ component SettingsPage inherits Rectangle {
                             Text {
                                 text: "°F";
                                 color: white;
-                                font-size: 12px;
+                                font-size: Palette.default_text_size;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }
@@ -605,6 +711,7 @@ component SettingsPage inherits Rectangle {
                         text: "News topic";
                         color: #cbd5e1;
                         width: 90px;
+                        font-size: Palette.default_text_size;
                         vertical-alignment: center;
                     }
 
@@ -639,6 +746,7 @@ component SettingsPage inherits Rectangle {
                         Text {
                             text: "Save";
                             color: white;
+                            font-size: Palette.button_text_size;
                             horizontal-alignment: center;
                             vertical-alignment: center;
                         }
@@ -665,7 +773,6 @@ export component MainWindow inherits Window {
     width: 1000px;
     height: 800px;
     background: #0b1022;
-
     in-out property <Page> current_page: Page.Weather;
     in-out property <string> clock_text: "12:34:56";
     in-out property <bool> show_splash: true;        // true at boot, false after delay
@@ -862,10 +969,9 @@ export component MainWindow inherits Window {
 
     // Overlayed splash that animates from centered to docked-top compact header
     overlay := Rectangle {
-        z: 100;                     // draw above content; no background, so it won't cover visually
+        z: 100;                   // draw above content; no background, so it won't cover visually
         width: parent.width;
         height: parent.height;
-
         splash := SplashView {
             // full width with margins while animating
 

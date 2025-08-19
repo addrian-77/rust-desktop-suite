@@ -5,12 +5,11 @@ mod config;
 mod cache;
 mod geocode;
 
-
 use weather::fetch_next_hours_at;
 use geocode::fetch_coords;
 
 
-use std::sync::{Arc, Mutex};
+use std::{path::Path, sync::{Arc, Mutex}};
 use auth::{LocalAuth, AuthError};
 
 use config::{AppConfig, load_config, load_config_for, save_config_for};
@@ -21,7 +20,7 @@ use cache::{
     load_news_for, save_news_for,
 };
 
-use slint::ComponentHandle;
+use slint::{ComponentHandle, Image, SharedPixelBuffer};
 
 slint::include_modules!();
 
@@ -579,12 +578,14 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(c) = load_news_for(&user) {
                 if is_fresh(c.ts, 15 * 60) {
                     if let Some(app) = app_weak.upgrade() {
+                        let path = Path::new("assets/no_image.png");
                         let items: Vec<ArticleItem> = c.rows.into_iter()
                             .map(|r| ArticleItem {
                                 title: r.title.into(),
                                 source: r.source.into(),
                                 published: r.published.into(),
                                 url: r.url.into(),
+                                thumbnail: Image::from_rgba8(SharedPixelBuffer::new(10, 10)),
                             })
                             .collect();
                         let model = slint::VecModel::from(items);
@@ -598,16 +599,17 @@ fn main() -> Result<(), slint::PlatformError> {
             let aw = app_weak.clone();
             let user_for_save = user.clone();
             h.spawn(async move {
-                match news::fetch_news(&topic, 12).await {
+                match news::fetch_news(&topic, 8).await {
                     Ok(rows) => {
                         let _ = save_news_for(&user_for_save, &rows); // <-- per-user save
                         ui(&aw, move |app| {
                             let items: Vec<ArticleItem> = rows.into_iter()
-                                .map(|(title, source, published, url)| ArticleItem {
+                                .map(|(title, source, published, url, thumbnail)| ArticleItem {
                                     title: title.into(),
                                     source: source.into(),
                                     published: published.into(),
                                     url: url.into(),
+                                    thumbnail: Image::from_rgba8(thumbnail),
                                 })
                                 .collect();
                             let model = slint::VecModel::from(items);

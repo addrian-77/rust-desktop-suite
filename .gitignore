@@ -6,7 +6,7 @@ cache/
 cache/**/*.json
 users.json
 users/
-
+/icons_cache/
 .idea/
 .env
 .env.*
