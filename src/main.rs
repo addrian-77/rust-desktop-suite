@@ -9,7 +9,7 @@ use weather::fetch_next_hours_at;
 use geocode::fetch_coords;
 
 
-use std::{path::Path, sync::{Arc, Mutex}};
+use std::sync::{Arc, Mutex};
 use auth::{LocalAuth, AuthError};
 
 use config::{AppConfig, load_config, load_config_for, save_config_for};
@@ -578,7 +578,7 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(c) = load_news_for(&user) {
                 if is_fresh(c.ts, 15 * 60) {
                     if let Some(app) = app_weak.upgrade() {
-                        let path = Path::new("assets/no_image.png");
+                      //  let path = Path::new("assets/no_image.png");
                         let items: Vec<ArticleItem> = c.rows.into_iter()
                             .map(|r| ArticleItem {
                                 title: r.title.into(),

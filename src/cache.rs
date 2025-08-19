@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
+use slint::{Rgba8Pixel, SharedPixelBuffer};
 use std::{fs, io, path::PathBuf};
 use chrono::Utc;
 

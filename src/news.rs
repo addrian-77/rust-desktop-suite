@@ -1,7 +1,7 @@
     use serde::Deserialize;
     use reqwest::{Client, Url};
     use scraper::{Html, Selector};
-    use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
+    use slint::{Rgba8Pixel, SharedPixelBuffer};
     use std::collections::HashMap;
     use tokio::sync::Mutex;
     use lazy_static::lazy_static;
@@ -14,7 +14,7 @@
         Json(serde_json::Error),
     }
 
-    use std::{fmt, path::Path, time::Duration};
+    use std::{fmt, time::Duration};
 
     impl fmt::Display for NewsFetchError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -224,24 +224,4 @@
                 }
             }
         }
-    }
-
-    pub async fn fetch_news_cached(
-        topic: &str,
-        count: usize
-    ) -> Result<Vec<(String,String,String,String,SharedPixelBuffer<Rgba8Pixel>)>, NewsFetchError> {
-
-        let mut cache = NEWS_CACHE.lock().await;
-        if let Some(cached) = cache.get(topic) {
-            // Return a clone of the cached news
-            return Ok(cached.clone());
-        }
-
-        // Call the original fetch_news, NOT fetch_news_cached
-        let news = fetch_news(topic, count).await?;
-
-        // Cache it
-        cache.insert(topic.to_string(), news.clone());
-
-        Ok(news)
     }

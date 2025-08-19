@@ -490,6 +490,38 @@ component NewsPage inherits Rectangle {
     }
 }
 
+component DarkInput inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder: "";
+    in property <bool> is_password: false;
+
+    height: 36px;
+    background: #1f2937;
+    border-color: #334155;
+    border-width: 1px;
+    border-radius: 6px;
+
+    ti := TextInput {
+        x: 8px; y: 6px;
+        width: parent.width - 16px;
+        height: parent.height - 12px;
+        text <=> root.text;
+        color: white;
+        font-size: Palette.default_text_size;
+        input-type: root.is_password ? InputType.password : InputType.text;
+    }
+
+    Text {
+        x: ti.x; y: ti.y + 1px;
+        text: root.placeholder;
+        color: #94a3b8;
+        font-size: Palette.default_text_size;
+        visible: root.text == "";
+    }
+}
+
+
+
 component LoginView inherits Rectangle {
     in-out property <string> user;
     in-out property <string> pin;
@@ -507,7 +539,7 @@ component LoginView inherits Rectangle {
 
         Text {
             text: "Sign in";
-            color: white;
+            color: #cbd5e1;
             horizontal-alignment: center;
             font-size: Palette.header_text_size;
         }
@@ -520,15 +552,15 @@ component LoginView inherits Rectangle {
             visible: root.error_text != "";
         }
 
-        LineEdit {
-            placeholder-text: "Username";
+        DarkInput {
+            placeholder: "Username";
             text <=> root.user;
         }
 
-        LineEdit {
-            placeholder-text: "PIN";
-            input-type: password;      // masks input
-                text <=> root.pin;
+        DarkInput {
+            placeholder: "PIN";
+            is_password: true;
+            text <=> root.pin;
         }
 
         // Buttons row
